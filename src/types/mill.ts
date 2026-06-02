@@ -24,6 +24,14 @@ export interface MillSheet {
   [date: string]: DailyMills;
 }
 
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  price: number;
+  note?: string;
+}
+
 export interface MonthSystem {
   id: string;
   name: string;
@@ -33,6 +41,7 @@ export interface MonthSystem {
   members: Member[];
   deposits: Deposit[];
   millSheet: MillSheet;
+  shoppingItems: ShoppingItem[];
 }
 
 export interface MemberSummary {

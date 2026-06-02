@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark scroll-smooth" style={{ colorScheme: "dark" }}>
+    <html lang="en" className="dark scroll-smooth" style={{ colorScheme: "dark" }} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>

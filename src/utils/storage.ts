@@ -1,4 +1,4 @@
-import { MonthSystem, MillCalculationResult, MemberSummary, Deposit, Member, MillSheet } from "@/types/mill";
+import { MonthSystem, MillCalculationResult, MemberSummary, Deposit, Member, MillSheet, ShoppingItem } from "@/types/mill";
 
 const STORAGE_KEY = "millmaster_data";
 
@@ -96,6 +96,15 @@ const generateMockData = (): MonthSystem[] => {
     });
   }
 
+  // Sample shopping items
+  const shoppingItems: ShoppingItem[] = [
+    { id: "s1", name: "Rice (25kg)", date: startDate, price: 1800, note: "Miniket rice" },
+    { id: "s2", name: "Cooking Oil (5L)", date: startDate, price: 850, note: "Soybean oil" },
+    { id: "s3", name: "Vegetables", date: `${currentYear}-${String(currentMonthNum + 1).padStart(2, "0")}-03`, price: 350, note: "Weekly vegetables" },
+    { id: "s4", name: "Fish & Meat", date: `${currentYear}-${String(currentMonthNum + 1).padStart(2, "0")}-05`, price: 1200, note: "Chicken + Rui fish" },
+    { id: "s5", name: "Spices & Essentials", date: `${currentYear}-${String(currentMonthNum + 1).padStart(2, "0")}-07`, price: 450, note: "Salt, turmeric, chili, onion, garlic" },
+  ];
+
   const mockMonth1: MonthSystem = {
     id: monthId1,
     name: `${monthNames[currentMonthNum]} ${currentYear}`,
@@ -104,7 +113,8 @@ const generateMockData = (): MonthSystem[] => {
     perDayMillCount: 2, // Lunch & Dinner
     members,
     deposits,
-    millSheet
+    millSheet,
+    shoppingItems
   };
 
   return [mockMonth1];
@@ -120,7 +130,12 @@ export const loadMonths = (): MonthSystem[] => {
     return mock;
   }
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored) as MonthSystem[];
+    // Backward compatibility: ensure shoppingItems exists on older data
+    return parsed.map((m) => ({
+      ...m,
+      shoppingItems: m.shoppingItems || [],
+    }));
   } catch (e) {
     console.error("Error parsing stored mill data", e);
     return [];

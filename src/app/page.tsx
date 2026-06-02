@@ -14,6 +14,8 @@ import {
   AlertCircle,
   Sparkles,
   X,
+  ShoppingCart,
+  Wallet,
 } from "lucide-react";
 import { MonthSystem, Member } from "@/types/mill";
 import { loadMonths, saveMonths, generateId, calculateMillMetrics, getDatesInRange } from "@/utils/storage";
@@ -133,7 +135,8 @@ export default function Dashboard() {
       perDayMillCount: count,
       members: formMembers,
       deposits: [],
-      millSheet
+      millSheet,
+      shoppingItems: []
     };
 
     const updatedMonths = [newMonth, ...months];
@@ -167,15 +170,20 @@ export default function Dashboard() {
   const aggregateStats = React.useMemo(() => {
     let totalDeposited = 0;
     let totalMeals = 0;
+    let totalShopping = 0;
 
     months.forEach((m) => {
       const metrics = calculateMillMetrics(m);
       totalDeposited += metrics.totalDeposits;
       totalMeals += metrics.totalMills;
+      totalShopping += m.shoppingItems.reduce((sum, item) => sum + item.price, 0);
     });
 
-    return { totalDeposited, totalMeals };
+    return { totalDeposited, totalMeals, totalShopping };
   }, [months]);
+
+  // Calculate remaining balance
+  const remainBalance = aggregateStats.totalDeposited - aggregateStats.totalShopping;
 
   return (
     <div className="space-y-10">
@@ -298,6 +306,8 @@ export default function Dashboard() {
               const metrics = calculateMillMetrics(month);
               const formattedStartDate = new Date(month.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
               const formattedEndDate = new Date(month.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+              const monthTotalShopping = month.shoppingItems.reduce((sum, item) => sum + item.price, 0);
+              const monthRemainBalance = metrics.totalDeposits - monthTotalShopping;
               
               return (
                 <Link key={month.id} href={`/month/${month.id}`} className="group block">
@@ -363,9 +373,31 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="p-5 mt-4 border-t border-white/5 bg-[#14141d]/20 flex justify-end items-center text-xs text-indigo-400 font-semibold group-hover:text-indigo-300">
-                      <span>View Meal Dashboard</span>
-                      <ArrowRight size={14} className="ml-1 transition-transform group-hover:translate-x-1" />
+                    <div className="p-5 mt-4 border-t border-white/5 bg-[#14141d]/20">
+                      {/* Shopping and Balance Info */}
+                      <div className="space-y-2 mb-4">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <ShoppingCart size={12} />
+                            Total Shopping
+                          </span>
+                          <span className="font-semibold text-blue-400">৳ {monthTotalShopping}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <Wallet size={12} />
+                            Remain Balance
+                          </span>
+                          <span className={`font-semibold ${monthRemainBalance >= 0 ? 'text-rose-400' : 'text-rose-500'}`}>
+                            ৳ {monthRemainBalance}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end items-center text-xs text-indigo-400 font-semibold group-hover:text-indigo-300">
+                        <span>View Meal Dashboard</span>
+                        <ArrowRight size={14} className="ml-1 transition-transform group-hover:translate-x-1" />
+                      </div>
                     </div>
                   </div>
                 </Link>

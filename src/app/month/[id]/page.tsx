@@ -21,8 +21,9 @@ import {
   UserPlus,
   ArrowDownRight,
   ArrowUpRight,
+  ShoppingCart,
 } from "lucide-react";
-import { MonthSystem, Member, Deposit, MillSheet } from "@/types/mill";
+import { MonthSystem, Member, Deposit, MillSheet, ShoppingItem } from "@/types/mill";
 import {
   loadMonths,
   saveMonths,
@@ -43,11 +44,19 @@ export default function MonthDashboard({ params }: PageProps) {
 
   // Core system state
   const [month, setMonth] = useState<MonthSystem | null>(null);
-  const [activeTab, setActiveTab] = useState<"sheet" | "ledger" | "calculations">("sheet");
+  const [activeTab, setActiveTab] = useState<"sheet" | "ledger" | "calculations" | "shopping">("sheet");
   
   // Modals state
   const [isAddDepositOpen, setIsAddDepositOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddShoppingOpen, setIsAddShoppingOpen] = useState(false);
+
+  // Add Shopping Item Form States
+  const [shoppingName, setShoppingName] = useState("");
+  const [shoppingDate, setShoppingDate] = useState("");
+  const [shoppingPrice, setShoppingPrice] = useState("");
+  const [shoppingNote, setShoppingNote] = useState("");
+  const [shoppingError, setShoppingError] = useState("");
 
   // Add Deposit Form States
   const [depositMemberId, setDepositMemberId] = useState("");
@@ -106,6 +115,8 @@ export default function MonthDashboard({ params }: PageProps) {
   // Calculate metrics
   const metrics = calculateMillMetrics(month);
   const dateList = getDatesInRange(month.startDate, month.endDate);
+  const totalShopping = month.shoppingItems.reduce((sum, item) => sum + item.price, 0);
+  const remainBalance = metrics.totalDeposits - totalShopping;
 
   // HELPER: Save month system updates to storage and reload
   const saveMonthUpdate = (updatedMonth: MonthSystem) => {
@@ -208,6 +219,59 @@ export default function MonthDashboard({ params }: PageProps) {
       const updatedMonth: MonthSystem = {
         ...month,
         deposits: month.deposits.filter((d) => d.id !== depId),
+      };
+      saveMonthUpdate(updatedMonth);
+    }
+  };
+
+  // Shopping List Actions
+  const handleOpenAddShopping = () => {
+    setShoppingName("");
+    setShoppingDate(formatDate(new Date()));
+    setShoppingPrice("");
+    setShoppingNote("");
+    setShoppingError("");
+    setIsAddShoppingOpen(true);
+  };
+
+  const handleAddShopping = () => {
+    setShoppingError("");
+    if (!shoppingName.trim()) {
+      setShoppingError("Please enter an item name.");
+      return;
+    }
+    const price = parseFloat(shoppingPrice);
+    if (isNaN(price) || price <= 0) {
+      setShoppingError("Please enter a valid price.");
+      return;
+    }
+    if (!shoppingDate) {
+      setShoppingError("Please pick a date.");
+      return;
+    }
+
+    const newItem: ShoppingItem = {
+      id: generateId(),
+      name: shoppingName.trim(),
+      date: shoppingDate,
+      price,
+      note: shoppingNote.trim() || undefined,
+    };
+
+    const updatedMonth: MonthSystem = {
+      ...month,
+      shoppingItems: [newItem, ...(month.shoppingItems || [])],
+    };
+
+    saveMonthUpdate(updatedMonth);
+    setIsAddShoppingOpen(false);
+  };
+
+  const handleDeleteShopping = (itemId: string) => {
+    if (confirm("Are you sure you want to delete this shopping item?")) {
+      const updatedMonth: MonthSystem = {
+        ...month,
+        shoppingItems: (month.shoppingItems || []).filter((s) => s.id !== itemId),
       };
       saveMonthUpdate(updatedMonth);
     }
@@ -354,39 +418,65 @@ export default function MonthDashboard({ params }: PageProps) {
       </section>
 
       {/* Metrics Counters */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="glass-card border border-white/5 rounded-2xl p-5 bg-[#191924]/30 backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
-              <Coins size={22} />
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+        <div className="glass-card border border-white/5 rounded-xl p-3 md:p-4 bg-[#191924]/30 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg md:rounded-xl bg-indigo-500/10 text-indigo-400 shrink-0">
+              <Coins size={16} className="md:w-5 md:h-5" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Fund</p>
-              <h3 className="text-2xl font-bold text-white">৳ {metrics.totalDeposits}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card border border-white/5 rounded-2xl p-5 bg-[#191924]/30 backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-              <PlusCircle size={22} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Meals Consumed</p>
-              <h3 className="text-2xl font-bold text-white">{metrics.totalMills}</h3>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">Total Fund</p>
+              <h3 className="text-sm md:text-xl font-bold text-white truncate">৳ {metrics.totalDeposits}</h3>
             </div>
           </div>
         </div>
 
-        <div className="glass-card border border-white/5 rounded-2xl p-5 bg-[#191924]/30 backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-              <TrendingUp size={22} />
+        <div className="glass-card border border-white/5 rounded-xl p-3 md:p-4 bg-[#191924]/30 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg md:rounded-xl bg-blue-500/10 text-blue-400 shrink-0">
+              <ShoppingCart size={16} className="md:w-5 md:h-5" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mill Rate</p>
-              <h3 className="text-2xl font-bold text-emerald-400">৳ {metrics.millRate.toFixed(2)}</h3>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">Total Shopping</p>
+              <h3 className="text-sm md:text-xl font-bold text-blue-400 truncate">৳ {totalShopping.toLocaleString()}</h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card border border-white/5 rounded-xl p-3 md:p-4 bg-[#191924]/30 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg md:rounded-xl bg-rose-500/10 text-rose-400 shrink-0">
+              <Wallet size={16} className="md:w-5 md:h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">Remain Balance</p>
+              <h3 className={`text-sm md:text-xl font-bold truncate ${remainBalance >= 0 ? 'text-rose-400' : 'text-rose-500'}`}>
+                ৳ {remainBalance.toLocaleString()}
+              </h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card border border-white/5 rounded-xl p-3 md:p-4 bg-[#191924]/30 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg md:rounded-xl bg-violet-500/10 text-violet-400 shrink-0">
+              <PlusCircle size={16} className="md:w-5 md:h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">Total Meals</p>
+              <h3 className="text-sm md:text-xl font-bold text-white truncate">{metrics.totalMills}</h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card border border-white/5 rounded-xl p-3 md:p-4 bg-[#191924]/30 backdrop-blur-md">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-lg md:rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
+              <TrendingUp size={16} className="md:w-5 md:h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] md:text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">Mill Rate</p>
+              <h3 className="text-sm md:text-xl font-bold text-emerald-400 truncate">৳ {metrics.millRate.toFixed(2)}</h3>
             </div>
           </div>
         </div>
@@ -395,7 +485,7 @@ export default function MonthDashboard({ params }: PageProps) {
       {/* Tabs Container */}
       <section className="space-y-4">
         {/* Custom Tab Strips */}
-        <div className="flex gap-6 border-b border-white/5">
+        <div className="flex gap-6 border-b border-white/5 overflow-x-auto pb-px">
           <button
             onClick={() => setActiveTab("sheet")}
             className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
@@ -422,7 +512,7 @@ export default function MonthDashboard({ params }: PageProps) {
 
           <button
             onClick={() => setActiveTab("calculations")}
-            className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === "calculations"
                 ? "border-indigo-500 text-white"
                 : "border-transparent text-slate-400 hover:text-slate-200"
@@ -430,6 +520,18 @@ export default function MonthDashboard({ params }: PageProps) {
           >
             <PieChart size={16} />
             <span>Settlements & Calculation</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("shopping")}
+            className={`pb-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+              activeTab === "shopping"
+                ? "border-indigo-500 text-white"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <ShoppingCart size={16} />
+            <span>Shopping List</span>
           </button>
         </div>
 
@@ -578,66 +680,159 @@ export default function MonthDashboard({ params }: PageProps) {
         )}
 
         {activeTab === "ledger" && (
-          <div className="border border-white/5 bg-[#14141a]/40 shadow-xl rounded-2xl p-6 animate-in fade-in duration-200">
+          <div className="space-y-6 animate-in fade-in duration-200">
             {month.deposits.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 space-y-4">
-                <Coins className="mx-auto text-slate-600" size={36} />
-                <div>
-                  <h4 className="text-white font-bold text-base">No deposits recorded</h4>
-                  <p className="text-xs text-slate-400 mt-1">Add roommate funds to compute your mill rates and settlements.</p>
+              <div className="border border-white/5 bg-[#14141a]/40 shadow-xl rounded-2xl p-6">
+                <div className="text-center py-12 text-slate-500 space-y-4">
+                  <Coins className="mx-auto text-slate-600" size={36} />
+                  <div>
+                    <h4 className="text-white font-bold text-base">No deposits recorded</h4>
+                    <p className="text-xs text-slate-400 mt-1">Add roommate funds to compute your mill rates and settlements.</p>
+                  </div>
+                  <button
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md text-sm mx-auto"
+                    onClick={handleOpenAddDeposit}
+                  >
+                    <Plus size={16} />
+                    <span>Add Initial Deposit</span>
+                  </button>
                 </div>
-                <button
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md text-sm mx-auto"
-                  onClick={handleOpenAddDeposit}
-                >
-                  <Plus size={16} />
-                  <span>Add Initial Deposit</span>
-                </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs uppercase bg-[#181824]/60 text-slate-400 border-b border-white/5">
-                    <tr>
-                      <th className="px-4 py-3">Date</th>
-                      <th className="px-4 py-3">Roommate</th>
-                      <th className="px-4 py-3">Description</th>
-                      <th className="px-4 py-3 text-right">Amount</th>
-                      <th className="px-4 py-3 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {month.deposits.map((dep) => {
-                      const member = month.members.find((m) => m.id === dep.memberId);
+              <>
+                {/* ── Per-Person Deposit Summary ── */}
+                <div className="border border-white/5 bg-[#14141a]/40 shadow-xl rounded-2xl p-6">
+                  <h4 className="text-white font-bold text-base flex items-center gap-2 mb-4">
+                    <Wallet size={18} className="text-indigo-400" />
+                    Per-Person Deposit Summary
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {month.members.map((member) => {
+                      const memberDeposits = month.deposits.filter((d) => d.memberId === member.id);
+                      const totalPaid = memberDeposits.reduce((acc, d) => acc + d.amount, 0);
+
                       return (
-                        <tr key={dep.id} className="hover:bg-white/[0.01]">
-                          <td className="px-4 py-3 text-slate-300">
-                            {new Date(dep.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
-                          </td>
-                          <td className="px-4 py-3 text-white font-semibold">
-                            {member?.name || "Unknown"}
-                          </td>
-                          <td className="px-4 py-3 text-slate-400">
-                            {dep.note || "Deposit"}
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-emerald-400">
-                            ৳ {dep.amount}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
-                              className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                              onClick={() => handleDeleteDeposit(dep.id)}
-                              title="Delete Deposit"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
+                        <details
+                          key={member.id}
+                          className="group border border-white/5 bg-[#191924]/50 rounded-xl overflow-hidden hover:border-indigo-500/30 transition-colors"
+                        >
+                          <summary className="flex items-center justify-between px-4 py-3.5 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-extrabold uppercase shrink-0">
+                                {member.name.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-white">{member.name}</p>
+                                <p className="text-[10px] text-slate-500">
+                                  {memberDeposits.length} deposit{memberDeposits.length !== 1 ? "s" : ""}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-extrabold text-emerald-400">৳ {totalPaid.toLocaleString()}</span>
+                              <svg
+                                className="w-4 h-4 text-slate-500 transition-transform duration-200 group-open:rotate-180"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </summary>
+
+                          {memberDeposits.length > 0 ? (
+                            <div className="border-t border-white/5 divide-y divide-white/5">
+                              {memberDeposits.map((dep) => (
+                                <div key={dep.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02]">
+                                  <div className="flex flex-col">
+                                    <span className="text-xs text-slate-300">
+                                      {new Date(dep.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">{dep.note || "Deposit"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-bold text-emerald-400">৳ {dep.amount.toLocaleString()}</span>
+                                    <button
+                                      className="p-1 text-slate-600 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                      onClick={() => handleDeleteDeposit(dep.id)}
+                                      title="Delete Deposit"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="px-4 py-3 text-xs text-slate-500 border-t border-white/5">
+                              No deposits yet
+                            </div>
+                          )}
+                        </details>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+
+                  {/* Grand Total Bar */}
+                  <div className="mt-4 flex items-center justify-between bg-[#12121e] border border-white/5 rounded-xl px-4 py-3">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Collected</span>
+                    <span className="text-lg font-extrabold text-white">৳ {metrics.totalDeposits.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* ── Full Deposit History (Chronological) ── */}
+                <div className="border border-white/5 bg-[#14141a]/40 shadow-xl rounded-2xl p-6">
+                  <h4 className="text-white font-bold text-base flex items-center gap-2 mb-4">
+                    <BookOpen size={18} className="text-violet-400" />
+                    Full Deposit History
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs uppercase bg-[#181824]/60 text-slate-400 border-b border-white/5">
+                        <tr>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Roommate</th>
+                          <th className="px-4 py-3">Description</th>
+                          <th className="px-4 py-3 text-right">Amount</th>
+                          <th className="px-4 py-3 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {month.deposits.map((dep) => {
+                          const member = month.members.find((m) => m.id === dep.memberId);
+                          return (
+                            <tr key={dep.id} className="hover:bg-white/[0.01]">
+                              <td className="px-4 py-3 text-slate-300">
+                                {new Date(dep.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+                              </td>
+                              <td className="px-4 py-3 text-white font-semibold">
+                                {member?.name || "Unknown"}
+                              </td>
+                              <td className="px-4 py-3 text-slate-400">
+                                {dep.note || "Deposit"}
+                              </td>
+                              <td className="px-4 py-3 text-right font-bold text-emerald-400">
+                                ৳ {dep.amount.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                  onClick={() => handleDeleteDeposit(dep.id)}
+                                  title="Delete Deposit"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -734,7 +929,200 @@ export default function MonthDashboard({ params }: PageProps) {
             </div>
           </div>
         )}
+
+        {/* Shopping List Tab */}
+        {activeTab === "shopping" && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Header + Add Button */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h4 className="text-white font-bold text-base flex items-center gap-2">
+                  <ShoppingCart size={18} className="text-amber-400" />
+                  Bazar & Shopping List
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">Track all purchases, groceries, and bazar expenses for this month.</p>
+              </div>
+              <button
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl flex items-center gap-2 cursor-pointer transition-all shadow-lg shadow-amber-600/25 text-sm active:scale-95"
+                onClick={handleOpenAddShopping}
+                id="add-shopping-btn"
+              >
+                <Plus size={16} />
+                <span>Add Item</span>
+              </button>
+            </div>
+
+            {(month.shoppingItems || []).length === 0 ? (
+              <div className="border border-white/5 bg-[#14141a]/40 shadow-xl rounded-2xl p-6">
+                <div className="text-center py-12 text-slate-500 space-y-4">
+                  <ShoppingCart className="mx-auto text-slate-600" size={36} />
+                  <div>
+                    <h4 className="text-white font-bold text-base">No shopping items recorded</h4>
+                    <p className="text-xs text-slate-400 mt-1">Start adding your bazar and grocery purchases to keep track of expenses.</p>
+                  </div>
+                  <button
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md text-sm mx-auto"
+                    onClick={handleOpenAddShopping}
+                  >
+                    <Plus size={16} />
+                    <span>Add First Item</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Shopping Items Table */}
+                <div className="border border-white/5 bg-[#14141a]/40 shadow-xl rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs uppercase bg-[#181824]/60 text-slate-400 border-b border-white/5">
+                        <tr>
+                          <th className="px-4 py-3 w-10">#</th>
+                          <th className="px-4 py-3">Item Name</th>
+                          <th className="px-4 py-3">Date</th>
+                          <th className="px-4 py-3">Note</th>
+                          <th className="px-4 py-3 text-right">Price</th>
+                          <th className="px-4 py-3 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {(month.shoppingItems || []).map((item, idx) => (
+                          <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 py-3 text-slate-500 text-xs font-mono">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
+                                  <ShoppingCart size={14} />
+                                </div>
+                                <span className="text-white font-semibold">{item.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-slate-300 text-xs">
+                              {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
+                            </td>
+                            <td className="px-4 py-3 text-slate-500 text-xs max-w-[200px] truncate">
+                              {item.note || "—"}
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-amber-400">
+                              ৳ {item.price.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                onClick={() => handleDeleteShopping(item.id)}
+                                title="Delete Item"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Total Spent Bar */}
+                  <div className="flex items-center justify-between bg-[#181824]/50 border-t border-white/10 px-4 py-3.5">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Spent</span>
+                    <span className="text-lg font-extrabold text-amber-400">
+                      ৳ {(month.shoppingItems || []).reduce((acc, s) => acc + s.price, 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </section>
+
+      {/* MODAL: ADD SHOPPING ITEM */}
+      {isAddShoppingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-[#111116] border border-white/5 rounded-2xl shadow-2xl text-white overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={18} className="text-amber-400" />
+                <h3 className="text-lg font-bold">Add Shopping Item</h3>
+              </div>
+              <button
+                onClick={() => setIsAddShoppingOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="px-6 py-6 space-y-4">
+              {shoppingError && (
+                <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-xl text-xs flex items-center gap-1.5">
+                  <X size={14} />
+                  <span>{shoppingError}</span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Item Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Rice, Vegetables, Fish, Oil..."
+                  className="w-full bg-[#171721] text-white border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 hover:border-white/20 transition-all"
+                  value={shoppingName}
+                  onChange={(e) => setShoppingName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Purchase Date</label>
+                  <input
+                    type="date"
+                    className="w-full bg-[#171721] text-white border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 hover:border-white/20 transition-all cursor-pointer"
+                    value={shoppingDate}
+                    onChange={(e) => setShoppingDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Price (৳)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 500"
+                    className="w-full bg-[#171721] text-white border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 hover:border-white/20 transition-all"
+                    value={shoppingPrice}
+                    onChange={(e) => setShoppingPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Note / Details (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Miniket rice 25kg, Weekly vegetables..."
+                  className="w-full bg-[#171721] text-white border border-white/10 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500 hover:border-white/20 transition-all"
+                  value={shoppingNote}
+                  onChange={(e) => setShoppingNote(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 border-t border-white/5 flex justify-end gap-2 bg-[#171721]/30">
+              <button
+                onClick={() => setIsAddShoppingOpen(false)}
+                className="px-4 py-2.5 text-slate-400 hover:text-white rounded-xl text-sm font-semibold cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold shadow-lg shadow-amber-500/25 rounded-xl text-sm cursor-pointer transition-all active:scale-95"
+                onClick={handleAddShopping}
+                id="confirm-shopping-btn"
+              >
+                Save Item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: ADD DEPOSIT */}
       {isAddDepositOpen && (
